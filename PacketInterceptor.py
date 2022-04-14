@@ -43,7 +43,7 @@ if __name__ == '__main__':
 
     packetQ = queue.Queue()
 
-    asyncSniffer = scapy.AsyncSniffer(filter=f"dst port {10374}", prn=lambda x: packetQ.put(x))
+    asyncSniffer = scapy.AsyncSniffer(filter=f"dst port {19610}", prn=lambda x: packetQ.put(x))
     asyncSniffer.start()
 
     encodedPackets = 0
@@ -57,8 +57,8 @@ if __name__ == '__main__':
                 encodedPackets += 1
                 print(pkt.payload.payload.payload.original)
                 # print(bytes(pkt))
-                encodedPacket = encodePacket(pkt.payload.payload.payload.original, transmissionString[sentPackets])
-                print(encodedPacket)
+                encodedPacket = encodePacket(bytes(pkt), transmissionString[sentPackets])
+                # print(encodedPacket)
 
             sentPackets += 1
     asyncSniffer.stop()

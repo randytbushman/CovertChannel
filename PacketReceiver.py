@@ -3,13 +3,14 @@ import argparse
 
 
 def decodePacket(packet):
-    return None
+    return packet[66]
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", "--listener_port", help="The port we listen on")
     parser.add_argument("-s", "--server_address", help="The address of the VoIP server")
+
     args = parser.parse_args()
 
     serverAddress = args.server_address
