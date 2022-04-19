@@ -16,13 +16,14 @@ if __name__ == '__main__':
     serverAddress = args.server_address
 
     UDP_IP = "127.0.0.1"
-    UDP_PORT = int(args.listener_port)
+    UDP_PORT = 5000     # int(args.listener_port)
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
     sock.bind((UDP_IP, UDP_PORT))
 
     while True:
-        data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
+        data, addr = sock.recvfrom(1024)    # buffer size is 1024 bytes
+        print(data)
         if addr == serverAddress:
             print(decodePacket(data), end="")
 
