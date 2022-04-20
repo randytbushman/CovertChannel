@@ -21,9 +21,11 @@ if __name__ == '__main__':
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
     sock.bind((UDP_IP, UDP_PORT))
 
+    i = 0
     while True:
         data, addr = sock.recvfrom(1024)    # buffer size is 1024 bytes
-        print(data)
-        if addr == serverAddress:
-            print(decodePacket(data), end="")
+        print(f"{data} - {i}")
+        i += 1
+        #if addr == serverAddress:
+        #    print(decodePacket(data), end="")
 
