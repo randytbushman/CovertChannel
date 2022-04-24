@@ -1,5 +1,6 @@
 import socket
 import argparse
+import time
 
 
 def decodePacket(packet):
@@ -48,13 +49,14 @@ def startListenerVV(sock, stealth):
     message = ""
     receivedPackets = 0
     i = 0
+    startTime = time.time()
     while True:
         data, _ = sock.recvfrom(1024)  # buffer size is 1024 bytes
         if receivedPackets == 0:
             char = decodePacket(data)
             message += char
             i += 1
-            print(char, f"\t\tDecoded Packets #: {i}")
+            print(char, f"\t\tDecoded Packets #: {i}", f"\t\tTimestamp: {time.time() - startTime}")
         receivedPackets = (1 + receivedPackets) % stealth
     return message
 
