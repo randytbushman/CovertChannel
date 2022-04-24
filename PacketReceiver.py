@@ -56,7 +56,7 @@ def startListenerVV(sock, stealth):
             char = decodePacket(data)
             message += char
             i += 1
-            print(char, f"\t\tDecoded Packets #: {i}", f"\t\tTimestamp: {time.time() - startTime}")
+            print(char, f"\t\tDecoded Packets #: {i}", f"\t\tTimestamp: {time.time() - startTime}s")
         receivedPackets = (1 + receivedPackets) % stealth
     return message
 
@@ -65,26 +65,27 @@ def startListenerVVV(sock, stealth):
     message = ""
     receivedPackets = 0
     i = 0
+    startTime = time.time()
     while True:
         data, _ = sock.recvfrom(1024)  # buffer size is 1024 bytes
         if receivedPackets == 0:
             char = decodePacket(data)
             message += char
             i += 1
-            print(char, f"\t\tDecoded Packets #: {i}")
-            print(f"Packet {i}: {data}\n\n")
+            print(char, f"\t\tDecoded Packets #: {i}", f"\t\tTimestamp: {time.time() - startTime}s")
+            print(f"Packets #{i} Data:\n {data}\n")
         receivedPackets = (1 + receivedPackets) % stealth
     return message
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--listener_port", help="The port we listen on")
-    parser.add_argument("-s", "--stealth", help="Number of packet encodings between each RTP transmission")
-    parser.add_argument("-o", "--output", help="Output file location of message")
-    parser.add_argument("-v", "--verbose", help="Prints each character to the stdout as it arrives", action='store_true')
-    parser.add_argument("-vv", "--vverbose", help="Prints each character to the stdout as it arrives", action='store_true')
-    parser.add_argument("-vvv", "--vvverbose", help="Prints each character to the stdout as it arrives", action='store_true')
+    parser.add_argument("-p", "--listener_port", required=True, help="The port we listen on.")
+    parser.add_argument("-s", "--stealth", default=1, help="Number of packets skipped before next RTP encoding.")
+    parser.add_argument("-o", "--output", help="Output file location of message.")
+    parser.add_argument("-v", "--verbose", help="Verbose output.", action='store_true')
+    parser.add_argument("-vv", "--verbose2", help="More verbose output.", action='store_true')
+    parser.add_argument("-vvv", "--verbose3", help="Most verbose output.", action='store_true')
     args = parser.parse_args()
 
     # Parse the arguments from the command line
@@ -97,9 +98,9 @@ if __name__ == '__main__':
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
     sock.bind((UDP_IP, UDP_PORT))
 
-    if args.vvverbose:
+    if args.verbose3:
         message = startListenerVVV(sock, stealth)
-    elif args.vverbose:
+    elif args.verbose2:
         message = startListenerVV(sock, stealth)
     elif args.verbose:
         message = startListenerV(sock, stealth)

