@@ -28,7 +28,7 @@ def get_ip():
     return IP
 
 
-def startListener(sock, stealth):
+def startListener(sock, stealth, messageLength):
     """
     Begins the listener and returns the information decoded from the packets.
     @param sock: the python socket object that the listener operates on
@@ -37,16 +37,19 @@ def startListener(sock, stealth):
     """
     message = ""
     receivedPackets = 0
-    while True:
+    i = 0
+    totalPackets = stealth * messageLength
+    while i < totalPackets:
         data, _ = sock.recvfrom(1024)  # buffer size is 1024 bytes
         if receivedPackets == 0:
             message += decodePacket(data)
         receivedPackets = (1 + receivedPackets) % stealth
+        i += 1
     sock.close()
     return message
 
 
-def startListenerV(sock, stealth):
+def startListenerV(sock, stealth, messageLength):
     """
     Begins the listener in verbose mode 1 and returns the information decoded from the packets. Each decoded character
     is printed to the standard output.
@@ -56,18 +59,21 @@ def startListenerV(sock, stealth):
     """
     message = ""
     receivedPackets = 0
-    while True:
+    i = 0
+    totalPackets = stealth * messageLength
+    while i < totalPackets:
         data, _ = sock.recvfrom(1024)  # buffer size is 1024 bytes
         if receivedPackets == 0:
             char = decodePacket(data)
             message += char
             print(char, end="")
         receivedPackets = (1 + receivedPackets) % stealth
+        i += 1
     sock.close()
     return message
 
 
-def startListenerVV(sock, stealth):
+def startListenerVV(sock, stealth, messageLength):
     """
     Begins the listener in verbose mode 2 and returns the information decoded from the packets. Each decoded character
     is printed to the standard output along with the time it takes for each packet to arrive.
@@ -77,21 +83,24 @@ def startListenerVV(sock, stealth):
     """
     message = ""
     receivedPackets = 0
-    i = 0
+    numDecodedPackets = 0
     startTime = time.time()
-    while True:
+    i = 0
+    totalPackets = stealth * messageLength
+    while i < totalPackets:
         data, _ = sock.recvfrom(1024)  # buffer size is 1024 bytes
         if receivedPackets == 0:
             char = decodePacket(data)
             message += char
-            i += 1
-            print(char, f"\t\tDecoded Packets #: {i}", f"\t\tTimestamp: {time.time() - startTime}")
+            numDecodedPackets += 1
+            print(char, f"\t\tDecoded Packets #: {numDecodedPackets}", f"\t\tTimestamp: {time.time() - startTime}")
         receivedPackets = (1 + receivedPackets) % stealth
+        i += 1
     sock.close()
     return message
 
 
-def startListenerVVV(sock, stealth):
+def startListenerVVV(sock, stealth, messageLength):
     """
     Begins the listener in verbose mode 3 and returns the information decoded from the packets. Each decoded character
     is printed to the standard output along with the time it takes for each packet to arrive. The payload is also
@@ -102,29 +111,33 @@ def startListenerVVV(sock, stealth):
     """
     message = ""
     receivedPackets = 0
-    i = 0
+    numDecodedPackets = 0
     startTime = time.time()
-    while True:
+    i = 0
+    totalPackets = stealth * messageLength
+    while i < totalPackets:
         data, _ = sock.recvfrom(1024)  # buffer size is 1024 bytes
         if receivedPackets == 0:
             char = decodePacket(data)
             message += char
-            i += 1
-            print(char, f"\t\tDecoded Packets #: {i}", f"\t\tTimestamp: {time.time() - startTime}")
-            print(f"Packet {i}: {data}\n\n")
+            numDecodedPackets += 1
+            print(char, f"\t\tDecoded Packets #: {numDecodedPackets}", f"\t\tTimestamp: {time.time() - startTime}")
+            print(f"Packet {numDecodedPackets}: {data}\n\n")
         receivedPackets = (1 + receivedPackets) % stealth
+        i += 1
     sock.close()
     return message
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--listener_port", help="The port we listen on")
-    parser.add_argument("-s", "--stealth", help="Number of packet encodings between each RTP transmission")
-    parser.add_argument("-o", "--output", help="Output file location of message")
-    parser.add_argument("-v", "--verbose", help="Prints each character to the stdout as it arrives", action='store_true')
-    parser.add_argument("-vv", "--vverbose", help="Prints each character to the stdout as it arrives", action='store_true')
-    parser.add_argument("-vvv", "--vvverbose", help="Prints each character to the stdout as it arrives", action='store_true')
+    parser.add_argument("-p", "--listener_port", help="The port we listen on.")
+    parser.add_argument("-s", "--stealth", help="Number of packet encodings between each RTP transmission.")
+    parser.add_argument("-o", "--output", help="Output file location for message.")
+    parser.add_argument("-l", "--length", required=True, help="The length of the message we receive.")
+    parser.add_argument("-v", "--verbose", help="Verbose mode 1.", action='store_true')
+    parser.add_argument("-vv", "--vverbose", help="Verbose mode 2.", action='store_true')
+    parser.add_argument("-vvv", "--vvverbose", help="Verbose mode 3.", action='store_true')
     args = parser.parse_args()
 
     # Parse the arguments from the command line
@@ -138,13 +151,13 @@ if __name__ == '__main__':
 
     # Select the listener function depending on verbosity value
     if args.vvverbose:
-        message = startListenerVVV(sock, stealth)
+        message = startListenerVVV(sock, stealth, int(args.length))
     elif args.vverbose:
-        message = startListenerVV(sock, stealth)
+        message = startListenerVV(sock, stealth, int(args.length))
     elif args.verbose:
-        message = startListenerV(sock, stealth)
+        message = startListenerV(sock, stealth, int(args.length))
     else:
-        message = startListener(sock, stealth)
+        message = startListener(sock, stealth, int(args.length))
 
     # Save the message to the specified output location
     if output is not None:
