@@ -1,5 +1,4 @@
 import argparse
-import base64
 import queue
 import scapy.all as scapy
 from scapy.all import sendp
