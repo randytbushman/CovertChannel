@@ -4,6 +4,35 @@ import scapy.all as scapy
 from scapy.all import sendp
 from scapy.layers.inet import UDP, IP, Ether
 from scapy.packet import Raw
+from numba import njit
+
+
+@njit
+def encodeBytes2(rawData, message, bitCounter):
+    k = 12  # Audio begins at 12th bit of raw load
+
+    while bitCounter < len(message) << 4 and k < len(rawData):
+        # Encode the least significant bit.
+        rawData[k] = rawData[k] | 1 if (ord(message[bitCounter >> 4]) >> (bitCounter & 7)) & 1 else rawData[k] & ~1
+        bitCounter += 1
+        k += 1
+
+    return rawData
+
+
+
+def encodePacket2(packet, message, bitCounter):
+    rawData = bytearray(packet[Raw].load)
+    k = 12  # Audio begins at 12th bit of raw load
+
+    while bitCounter < len(message) << 4 and k < len(rawData):
+        # Encode the least significant bit.
+        rawData[k] = rawData[k] | 1 if (ord(message[bitCounter >> 4]) >> (bitCounter & 7)) & 1 else rawData[k] & ~1
+        bitCounter += 1
+        k += 1
+
+    packet[Raw].load = bytes(rawData)
+    return packet, bitCounter
 
 
 def encodePacket(packet, character):
