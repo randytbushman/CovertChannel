@@ -1,4 +1,4 @@
-RTP Cover Channel 
+RTP Cover Channel - Adv. Computer Networks Class Spring 2022
 -
 This covert channel exploits the unencrypted audio traffic transmitted by Asterisk servers with
 default settings.
