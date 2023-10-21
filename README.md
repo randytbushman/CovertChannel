@@ -1,4 +1,4 @@
-# RTP Cover Channel: Exploiting Unencrypted Audio Traffic (Active Development)
+# RTP Covert Channel: Exploiting Unencrypted Audio Traffic (Active Development)
 
 Welcome to the RTP Cover Channel project, an innovative exploration into the realm of covert channels and information security. This project is currently under active development and focuses on exploiting unencrypted audio traffic transmitted by Asterisk servers with default settings.
 
